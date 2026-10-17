@@ -11,7 +11,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { User, ArrowRight, ShieldCheck, Check } from 'lucide-react';
+import { User, ArrowRight } from 'lucide-react';
 import { AuthUser, AuthView } from '../../types';
 import { AuthInput } from '../../components/auth/AuthInput';
 import { PasswordInput } from '../../components/auth/PasswordInput';
@@ -38,7 +38,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
-  const [registeredAccounts, setRegisteredAccounts] = useState<RegisteredUser[]>(() => getRegisteredUsers());
 
   // Field validation error states
   const [identifierError, setIdentifierError] = useState('');
@@ -57,11 +56,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     }
 
     // 2. Fetch latest registered users from server and merge
-    syncUsersWithServer().then((users) => {
-      if (users && users.length > 0) {
-        setRegisteredAccounts(users);
-      }
-    });
+    syncUsersWithServer().catch(() => {});
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -178,7 +173,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       // 3. Fallback: refresh all users from server in case user was registered in another session
       try {
         const freshUsers = await syncUsersWithServer();
-        setRegisteredAccounts(freshUsers);
         const secondMatch = freshUsers.find(isUserMatch);
         if (secondMatch) {
           setIsLoading(false);
@@ -294,66 +288,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         </div>
       </form>
 
-      {/* Quick Select Registered Accounts Preview */}
-      {registeredAccounts.length > 0 && (
-        <div className="mt-4 pt-3.5 border-t border-slate-100 dark:border-slate-800 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold tracking-wide uppercase text-slate-500 dark:text-slate-400">
-              Registered Accounts ({registeredAccounts.length})
-            </span>
-            <span className="text-[10px] text-slate-400">Click to autofill username</span>
-          </div>
-          <div className="space-y-1.5 max-h-36 overflow-y-auto pr-0.5">
-            {registeredAccounts.map((account) => {
-              const isCurrentSelection = identifier.trim().toLowerCase() === account.username.toLowerCase();
-              return (
-                <button
-                  key={account.username}
-                  type="button"
-                  onClick={() => {
-                    setIdentifier(account.username);
-                    if (identifierError) setIdentifierError('');
-                    if (formError) setFormError('');
-                  }}
-                  className={`w-full flex items-center justify-between p-2 rounded-xl border transition-all text-left cursor-pointer group ${
-                    isCurrentSelection
-                      ? 'bg-blue-50/80 dark:bg-blue-950/40 border-blue-300 dark:border-blue-700'
-                      : 'bg-slate-50 dark:bg-slate-900/60 hover:bg-blue-50/50 dark:hover:bg-blue-950/30 border-slate-200 dark:border-slate-800 hover:border-blue-200'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-7 h-7 rounded-lg bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-bold flex items-center justify-center text-[11px] overflow-hidden shrink-0">
-                      {account.avatar ? (
-                        <img src={account.avatar} alt={account.name} className="w-full h-full object-cover" />
-                      ) : (
-                        (account.name || account.username).slice(0, 2).toUpperCase()
-                      )}
-                    </div>
-                    <div className="truncate">
-                      <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                        {account.name || account.username}
-                      </p>
-                      <p className="text-[10px] font-mono text-slate-500 dark:text-slate-400 truncate">
-                        @{account.username} {account.email ? `• ${account.email}` : ''}
-                      </p>
-                    </div>
-                  </div>
-                  {isCurrentSelection ? (
-                    <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 flex items-center gap-1 shrink-0">
-                      <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-                      <span>Selected</span>
-                    </span>
-                  ) : (
-                    <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                      Select →
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {/* Bottom Switch to Register */}
       <div className="pt-2 text-center text-xs text-slate-500 dark:text-slate-400 border-t border-slate-100 dark:border-slate-800">
