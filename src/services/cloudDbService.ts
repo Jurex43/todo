@@ -372,18 +372,24 @@ export async function cloudDbVerifyOtpCode(email: string, token: string): Promis
  */
 export async function cloudDbUpdatePassword(newPassword: string, identifier?: string): Promise<{ success: boolean; error: string | null }> {
   try {
-    // 1. Immediately update password in LocalStorage
-    if (identifier) {
-      updateUserPassword(identifier, newPassword);
+    // 1. Immediately update password in LocalStorage & Server
+    const targetId = identifier || localStorage.getItem('todolist_remembered_identifier') || '';
+    if (targetId) {
+      updateUserPassword(targetId, newPassword);
+    } else {
+      try {
+        const users = getRegisteredUsers();
+        if (users.length > 0) {
+          const updated = users.map((u) => ({ ...u, password: newPassword }));
+          localStorage.setItem('todolist_registered_users', JSON.stringify(updated));
+          fetch('/api/update-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ newPassword }),
+          }).catch(() => {});
+        }
+      } catch {}
     }
-    // Also update all local registered accounts to match
-    try {
-      const users = getRegisteredUsers();
-      if (users.length > 0) {
-        const updated = users.map((u) => ({ ...u, password: newPassword }));
-        localStorage.setItem('todolist_registered_users', JSON.stringify(updated));
-      }
-    } catch {}
 
     // 2. Asynchronously update Cloud Auth in background (non-blocking)
     cloudDb.auth.updateUser({ password: newPassword }).catch(() => {});

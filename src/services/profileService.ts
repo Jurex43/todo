@@ -50,6 +50,12 @@ export async function updateUserProfile(
 
     try {
       localStorage.setItem(USERS_DB_KEY, JSON.stringify(updatedList));
+      // Also sync to server in background
+      fetch('/api/users/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ users: updatedList }),
+      }).catch(() => {});
     } catch (e) {
       console.warn('LocalStorage USERS_DB_KEY save note:', e);
     }

@@ -10,8 +10,6 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-export const SUPABASE_URL = 'https://ojflxeuxfsvmvqiljxve.cloudDb.co';
-
 const getEnvVar = (key: string): string | undefined => {
   try {
     if (typeof process !== 'undefined' && process.env && process.env[key]) {
@@ -31,6 +29,8 @@ const getEnvVar = (key: string): string | undefined => {
   }
   return undefined;
 };
+
+export const SUPABASE_URL = getEnvVar('VITE_SUPABASE_URL') || 'https://ojflxeuxfsvmvqiljxve.supabase.co';
 
 export const SUPABASE_ANON_KEY =
   getEnvVar('VITE_SUPABASE_ANON_KEY') ||

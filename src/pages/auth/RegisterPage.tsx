@@ -129,6 +129,11 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
         password,
       });
 
+      // Pre-remember registered identifier for seamless logout & login
+      try {
+        localStorage.setItem('todolist_remembered_identifier', cleanUsername);
+      } catch {}
+
       // Explicitly initialize 0 tasks for the newly created account
       saveTasksToStorage([], cleanUsername);
       saveTasksToStorage([], fallbackId);

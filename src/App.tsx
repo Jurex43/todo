@@ -446,7 +446,12 @@ export default function App() {
       saveTasksToStorage(tasks, userKey);
     }
 
-    // 2. Clear auth session and reset view
+    // 2. Remember username for easy re-login, clear auth session and reset view
+    if (authSession.user?.username) {
+      try {
+        localStorage.setItem('todolist_remembered_identifier', authSession.user.username);
+      } catch {}
+    }
     clearAuthSession();
     setAuthSession({ isAuthenticated: false, user: null });
     setIsLogoutConfirmOpen(false);
@@ -466,12 +471,14 @@ export default function App() {
 
     // 5. Clean up any Cloud browser auth tokens to avoid cross-account leakage
     try {
+      const keysToRemove: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
         if (k && k.startsWith('sb-') && k.endsWith('-auth-token')) {
-          localStorage.removeItem(k);
+          keysToRemove.push(k);
         }
       }
+      keysToRemove.forEach((k) => localStorage.removeItem(k));
     } catch {}
   };
 

@@ -175,6 +175,264 @@ app.post('/api/verify-otp', (req, res) => {
   return res.json({ success: true });
 });
 
+// ==========================================
+// PERSISTENT SERVER USER AUTHENTICATION
+// ==========================================
+import fs from 'fs';
+
+interface ServerUser {
+  id: string;
+  username: string;
+  name: string;
+  email: string;
+  avatar?: string;
+  password: string;
+  createdAt: string;
+}
+
+const USERS_FILE_PATH = path.resolve('data', 'users.json');
+
+function loadServerUsers(): ServerUser[] {
+  try {
+    if (fs.existsSync(USERS_FILE_PATH)) {
+      const data = fs.readFileSync(USERS_FILE_PATH, 'utf-8');
+      if (data && data.trim()) {
+        const parsed = JSON.parse(data);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    }
+  } catch (err) {
+    console.warn('[Server Users] Failed to read users file:', err);
+  }
+  return [];
+}
+
+function saveServerUsers(users: ServerUser[]): void {
+  try {
+    const dir = path.dirname(USERS_FILE_PATH);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(USERS_FILE_PATH, JSON.stringify(users, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('[Server Users] Failed to write users file:', err);
+  }
+}
+
+// GET: Retrieve all registered users
+app.get('/api/users', (_req, res) => {
+  const users = loadServerUsers();
+  res.json({
+    success: true,
+    users: users.map((u) => ({
+      id: u.id,
+      username: u.username,
+      name: u.name,
+      email: u.email,
+      avatar: u.avatar,
+      createdAt: u.createdAt,
+      password: u.password,
+    })),
+  });
+});
+
+// POST: Register a new user
+app.post('/api/register', (req, res) => {
+  try {
+    const { id, username, name, email, avatar, password } = req.body;
+    if (!username || !password) {
+      return res.status(400).json({ success: false, error: 'Username and password are required.' });
+    }
+
+    const cleanUsername = String(username).trim();
+    const normalizedUsername = cleanUsername.toLowerCase();
+    const cleanEmail = email && String(email).trim().includes('@')
+      ? String(email).trim().toLowerCase()
+      : `${normalizedUsername}@todolist.app`;
+    const displayName = name ? String(name).trim() : cleanUsername;
+
+    const users = loadServerUsers();
+    // Filter out existing with same username (case-insensitive)
+    const filtered = users.filter((u) => (u?.username || '').toLowerCase() !== normalizedUsername);
+
+    const newUser: ServerUser = {
+      id: id || `user_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      username: cleanUsername,
+      name: displayName,
+      email: cleanEmail,
+      avatar: avatar || undefined,
+      password: String(password),
+      createdAt: new Date().toISOString(),
+    };
+
+    filtered.push(newUser);
+    saveServerUsers(filtered);
+
+    console.log(`[Server Auth] Registered new user: ${cleanUsername} (${cleanEmail})`);
+
+    return res.json({
+      success: true,
+      user: {
+        id: newUser.id,
+        username: newUser.username,
+        name: newUser.name,
+        email: newUser.email,
+        avatar: newUser.avatar,
+        plan: 'Tasks Pro',
+      },
+    });
+  } catch (err: any) {
+    console.error('Error in /api/register:', err);
+    return res.status(500).json({ success: false, error: err?.message || 'Failed to register user.' });
+  }
+});
+
+// POST: Log in user with identifier and password
+app.post('/api/login', (req, res) => {
+  try {
+    const { identifier, password } = req.body;
+    if (!identifier || !password) {
+      return res.status(400).json({ success: false, error: 'Username or email and password are required.' });
+    }
+
+    const rawInput = String(identifier).trim();
+    const cleanInput = rawInput.toLowerCase().replace(/^@+/, '');
+    const cleanPassword = String(password);
+
+    const users = loadServerUsers();
+    const matched = users.find((u) => {
+      if (!u) return false;
+      const uUser = (u.username || '').trim().toLowerCase();
+      const uEmail = (u.email || '').trim().toLowerCase();
+      const uEmailPrefix = uEmail.split('@')[0];
+      const uName = (u.name || '').trim().toLowerCase();
+      const uId = (u.id || '').trim().toLowerCase();
+
+      const idMatch = (
+        uUser === cleanInput ||
+        uEmail === cleanInput ||
+        uEmailPrefix === cleanInput ||
+        uName === cleanInput ||
+        uId === cleanInput
+      );
+
+      const passMatch = u.password === cleanPassword || (u.password && u.password.trim() === cleanPassword.trim());
+      return idMatch && passMatch;
+    });
+
+    if (matched) {
+      console.log(`[Server Auth] Successful login for: ${matched.username}`);
+      return res.json({
+        success: true,
+        user: {
+          id: matched.id,
+          username: matched.username,
+          name: matched.name || matched.username,
+          email: matched.email,
+          avatar: matched.avatar,
+          plan: 'Tasks Pro',
+        },
+      });
+    }
+
+    console.warn(`[Server Auth] Login failed for identifier: ${cleanInput}`);
+    return res.status(401).json({
+      success: false,
+      error: 'Invalid username or password. Please check and try again.',
+    });
+  } catch (err: any) {
+    console.error('Error in /api/login:', err);
+    return res.status(500).json({ success: false, error: err?.message || 'Authentication error.' });
+  }
+});
+
+// POST: Update user password
+app.post('/api/update-password', (req, res) => {
+  try {
+    const { identifier, newPassword } = req.body;
+    if (!newPassword) {
+      return res.status(400).json({ success: false, error: 'New password is required.' });
+    }
+
+    const cleanInput = (identifier || '').trim().toLowerCase().replace(/^@+/, '');
+    const users = loadServerUsers();
+    let updated = false;
+
+    const mapped = users.map((u) => {
+      const match = !cleanInput || 
+        (u.username || '').toLowerCase() === cleanInput ||
+        (u.email || '').toLowerCase() === cleanInput ||
+        (u.email || '').toLowerCase().split('@')[0] === cleanInput ||
+        (u.id || '').toLowerCase() === cleanInput;
+      if (match) {
+        updated = true;
+        return { ...u, password: String(newPassword) };
+      }
+      return u;
+    });
+
+    if (updated || users.length > 0) {
+      saveServerUsers(mapped);
+      return res.json({ success: true, message: 'Password updated successfully.' });
+    }
+
+    return res.status(404).json({ success: false, error: 'User not found.' });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err?.message || 'Failed to update password.' });
+  }
+});
+
+// POST: Bidirectional synchronization with client users
+app.post('/api/users/sync', (req, res) => {
+  try {
+    const { users: clientUsers } = req.body;
+    if (!Array.isArray(clientUsers)) {
+      return res.status(400).json({ success: false, error: 'Users array required.' });
+    }
+
+    const serverUsers = loadServerUsers();
+    const userMap = new Map<string, ServerUser>();
+
+    // Index server users
+    for (const su of serverUsers) {
+      if (su && su.username) {
+        userMap.set(su.username.toLowerCase(), su);
+      }
+    }
+
+    // Merge client users
+    for (const cu of clientUsers) {
+      if (cu && cu.username) {
+        const key = cu.username.toLowerCase();
+        const existing = userMap.get(key);
+        if (!existing) {
+          userMap.set(key, {
+            id: cu.id || `user_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+            username: cu.username,
+            name: cu.name || cu.username,
+            email: cu.email || `${cu.username.toLowerCase()}@todolist.app`,
+            avatar: cu.avatar,
+            password: cu.password || 'default123',
+            createdAt: cu.createdAt || new Date().toISOString(),
+          });
+        } else if (cu.password) {
+          existing.password = cu.password;
+          if (cu.avatar) existing.avatar = cu.avatar;
+          if (cu.name) existing.name = cu.name;
+          if (cu.email) existing.email = cu.email;
+        }
+      }
+    }
+
+    const merged = Array.from(userMap.values());
+    saveServerUsers(merged);
+
+    return res.json({ success: true, users: merged });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err?.message || 'Sync failed.' });
+  }
+});
+
 // Mount Vite middleware in development
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
