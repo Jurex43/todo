@@ -446,10 +446,11 @@ export default function App() {
       saveTasksToStorage(tasks, userKey);
     }
 
-    // 2. Remember username for easy re-login, clear auth session and reset view
-    if (authSession.user?.username) {
+    // 2. Remember email for easy re-login, clear auth session and reset view
+    const rememberedId = authSession.user?.email || authSession.user?.username;
+    if (rememberedId) {
       try {
-        localStorage.setItem('todolist_remembered_identifier', authSession.user.username);
+        localStorage.setItem('todolist_remembered_identifier', rememberedId);
       } catch {}
     }
     clearAuthSession();

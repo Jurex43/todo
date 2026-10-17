@@ -11,7 +11,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { User, ArrowRight } from 'lucide-react';
+import { Mail, ArrowRight } from 'lucide-react';
 import { AuthUser, AuthView } from '../../types';
 import { AuthInput } from '../../components/auth/AuthInput';
 import { PasswordInput } from '../../components/auth/PasswordInput';
@@ -65,9 +65,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
     let hasErrors = false;
 
-    // 1. Username/Email validation
+    // 1. Email validation
     if (!identifier.trim()) {
-      setIdentifierError('Please enter your username or email.');
+      setIdentifierError('Please enter your email.');
       hasErrors = true;
     } else {
       setIdentifierError('');
@@ -217,22 +217,22 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
       {/* Main Login Form */}
       <form onSubmit={handleSubmit} className="space-y-3.5">
-        {/* Username or Email Input */}
+        {/* Email Input */}
         <AuthInput
           id="login-identifier"
-          label="Username or Email"
-          type="text"
+          label="Email Address"
+          type="email"
           value={identifier}
           onChange={(e) => {
             setIdentifier(e.target.value);
             if (identifierError) setIdentifierError('');
             if (formError) setFormError('');
           }}
-          placeholder="e.g. Jurex43 or user@gmail.com"
-          autoComplete="username"
+          placeholder="e.g. user@gmail.com"
+          autoComplete="email"
           autoFocus
           error={identifierError}
-          icon={User}
+          icon={Mail}
           disabled={isLoading}
         />
 
