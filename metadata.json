@@ -1,0 +1,8 @@
+{
+  "name": "TaskFlow",
+  "description": "Modern, intuitive task management and productivity dashboard to organize work and clear your mind.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
